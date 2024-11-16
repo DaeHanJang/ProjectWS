@@ -1,6 +1,6 @@
 # ProjectWS
 
-https://youtu.be/4a2lpLZIypo?si=NpGrgwUsPe6BZvKn</br>
+[![Video Label](http://img.youtube.com/vi/4a2lpLZIypo/0.jpg)](https://youtu.be/4a2lpLZIypo)</br>
 플레이 영상</br>
 
 
