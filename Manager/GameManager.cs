@@ -1,3 +1,4 @@
+using Management;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,19 +6,17 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 //게임 매니저
-public class GameManager : SceneSingletonComponent<GameManager> {
+public class GameManager : SceneManager<GameManager> {
     public GameObject player = null; //플레이어 오브젝트
     public PlayerState ps = null; //플레이어 데이터 담당 컴포넌트
     public PlayerWeapon pw = null; //플레이어 무기 관리 컴포넌트
     public PlayerMovement pm = null; //플레이어 이동 컴포넌트
     public PlayerDetection pd = null; //플레이어 감지 컴포넌트
     public GameObject touchPad = null;
-    public GameObject fade = null;
     public int gameState = 0; //게임 상태 0:대기, 1:인 게임, 2: 게임 오버
     public int enemyCnt = 0; //적 숫자
 
     private GameObject[] enemy = new GameObject[3];
-    private GameObject preFade = null;
     private GameObject gachaBoard = null;
     private GameObject optionBoard = null;
     private GameObject virtualJoystick = null;
@@ -34,7 +33,8 @@ public class GameManager : SceneSingletonComponent<GameManager> {
 
     protected override void Awake() {
         base.Awake();
-        Application.targetFrameRate = 60;
+        SetScreenTransitionEffect("UI/Fade", "UI");
+
         player = GameObject.Find("Player");
         ps = player.GetComponent<PlayerState>();
         pw = player.GetComponent<PlayerWeapon>();
@@ -43,7 +43,6 @@ public class GameManager : SceneSingletonComponent<GameManager> {
         enemy[0] = Resources.Load<GameObject>("Enemies/Cat");
         enemy[1] = Resources.Load<GameObject>("Enemies/Skeleton");
         enemy[2] = Resources.Load<GameObject>("Enemies/Flyingeye");
-        preFade = Resources.Load<GameObject>("UI/Fade");
         gachaBoard = Resources.Load<GameObject>("UI/GachaBoard");
         optionBoard = GameObject.Find("OptionBoard");
         virtualJoystick = GameObject.Find("Joystick");
@@ -56,9 +55,6 @@ public class GameManager : SceneSingletonComponent<GameManager> {
     }
 
     private void Start() {
-        fade = Instantiate(preFade, transform.position, Quaternion.identity);
-        fade.transform.SetParent(GameObject.Find("UI").transform);
-        fade.transform.SetAsLastSibling();
         GameStart();
     }
 
@@ -78,20 +74,18 @@ public class GameManager : SceneSingletonComponent<GameManager> {
     }
 
     //게임 시작
-    public void GameStart() {
+    public override void GameStart() {
         gameState = 1;
         StartCoroutine(posSpawn());
     }
 
     //게임 종료
-    public void GameOver() {
+    public override void GameOver() {
         gameState = 2;
         StopCoroutine(posSpawn());
         touchPad.SetActive(false);
         AuthManager.Inst.AddLeaderboard(timer);
-        fade.SetActive(true);
-        fade.GetComponent<Fade>().SetFadeout(0);
-        Invoke("MoveMainScene", 1.5f);
+        LoadScene(0);
     }
 
     //레벨 UI 조정
@@ -144,5 +138,12 @@ public class GameManager : SceneSingletonComponent<GameManager> {
         regenTime = 1f;
         feverTimer = 0f;
         feverTiming = 20f;
+    }
+
+    public override void LoadScene(int sceneIdx) {
+        base.LoadScene(sceneIdx);
+
+        screenTransitionEffect.GetComponent<ScreenTransitionEffect>().sceneIdx = sceneIdx;
+        screenTransitionEffect.GetComponent<ScreenTransitionEffect>().EndEffectFirst();
     }
 }

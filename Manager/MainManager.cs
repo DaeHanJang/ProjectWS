@@ -12,6 +12,7 @@ public class MainManager : SceneManager<MainManager> {
     private AdmobManager admobm = null; //Google admob manager
 
     public GameObject loginBoard = null;
+    public GameObject btnScore = null;
     public Button btnAuth = null;
     public Button btnLogout = null;
 
@@ -26,10 +27,12 @@ public class MainManager : SceneManager<MainManager> {
         authm = AuthManager.Inst;
         admobm = AdmobManager.Inst;
         if (authm.FUser != null) {
+            if (authm.FUser.IsAnonymous) btnScore.SetActive(false);
             loginBoard.SetActive(false);
             admobm.ShowFrontAd();
         }
         admobm.LoadBannerAdmob();
+        btnLogout.gameObject.SetActive(false);
     }
 
     public void TouchAuthentication() {
@@ -41,9 +44,9 @@ public class MainManager : SceneManager<MainManager> {
             loginBoard.SetActive(false);
         }
         else {
-            if (authm.FUser == null) btnLogout.interactable = false;
-            else btnLogout.interactable = true;
             loginBoard.SetActive(true);
+            if (authm.FUser == null) btnLogout.gameObject.SetActive(false);
+            else btnLogout.gameObject.SetActive(true);
         }
     }
 
@@ -51,19 +54,26 @@ public class MainManager : SceneManager<MainManager> {
     //Touch google login button
     public void TouchGoogleLogin() {
         authm.GPGSLogin();
-        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) loginBoard.SetActive(false);
+        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) {
+            btnScore.SetActive(true);
+            loginBoard.SetActive(false);
+        }
     }
 
     //Touch guest login button
     public void TouchGuestLogin() {
         authm.AnonymouslyLogin();
-        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) loginBoard.SetActive(false);
+        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) {
+            btnScore.SetActive(false);
+            loginBoard.SetActive(false);
+        }
     }
 
     //Touch logout button
     public void TouchLogout() {
         authm.Logout();
-        btnLogout.interactable = false;
+        btnLogout.gameObject.SetActive(false);
+        appm.ShowContextWindow("You have been logged out");
     }
 
     //Touch start button

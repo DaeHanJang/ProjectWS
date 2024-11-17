@@ -21,7 +21,8 @@ public class AdmobManager : GameManager<AdmobManager> {
     protected override void Awake() {
         base.Awake();
         //Mobile Ad. SDK initialization
-        MobileAds.Initialize((initStatus) => { });
+        MobileAds.Initialize((initStatus) => {
+        });
     }
 
     private void Start() {

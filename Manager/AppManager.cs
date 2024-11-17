@@ -31,6 +31,12 @@ public class AppManager : GameManager<AppManager> {
         window.GetComponentInChildren<Button>().onClick.AddListener(TouchExitWindow);
     }
 
+    public void ShowContextWindow(string text) {
+        window = Instantiate(confirmationWindow, new Vector3(0f, 0f), Quaternion.identity);
+        window.GetComponentInChildren<Text>().text = text;
+        window.GetComponentInChildren<Button>().onClick.AddListener(TouchExitWindow);
+    }
+
     public void TouchExitWindow() {
         if (es != ErrorStatus.None) {
 #if UNITY_EDITOR
