@@ -31,7 +31,6 @@ public class OptionBoard : MonoBehaviour {
     }
 
     public void ClickExitButton() {
-        GameManager.Inst.fade.SetActive(true);
-        GameManager.Inst.fade.GetComponent<Fade>().SetFadeout(0);
+        GameManager.Inst.LoadScene(0);
     }
 }

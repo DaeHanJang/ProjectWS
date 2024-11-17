@@ -1,31 +1,33 @@
+using Management;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class Fade : MonoBehaviour {
-    private RectTransform rt = null;
-    private Animator at = null;
-    private int sceneIdx = 0;
+public class Fade : ScreenTransitionEffect {
+    /*private RectTransform rt = null;
 
     private void Awake() {
         rt = GetComponent<RectTransform>();
-        at = GetComponent<Animator>();
     }
 
     private void Start() {
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-    }
+    }*/
 
-    public void SetFadeout(int idx) {
-        sceneIdx = idx;
-        at.SetTrigger("Fadeout");
-    }
+    public override void StartEffectFirst() { }
 
-    public void SetActiveFalse() {
+    public override void StartEffectLast() {
         gameObject.SetActive(false);
     }
 
-    public void SetMoveScene() {
+    public override void EndEffectFirst() {
+        gameObject.SetActive(true);
+        GetComponent<Animator>().SetTrigger("Fadeout");
+    }
+
+    public override void EndEffectLast() {
+        if (sceneIdx == -1) return;
+
         SceneManager.LoadScene(sceneIdx);
     }
 }
