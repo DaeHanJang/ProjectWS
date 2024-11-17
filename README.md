@@ -1,6 +1,6 @@
 # ProjectWS
 
-[![Video Label](http://img.youtube.com/vi/4a2lpLZIypo/0.jpg)](https://youtu.be/4a2lpLZIypo)</br>
+[![Video Label](http://img.youtube.com/vi/bjz68-HM9dM/0.jpg)](https://youtu.be/bjz68-HM9dM)</br>
 플레이 영상</br>
 
 ## 1. 개요
