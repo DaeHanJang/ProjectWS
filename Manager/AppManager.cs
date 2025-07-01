@@ -5,58 +5,74 @@ using WhiteSurvivor;
 
 //Application manager
 public class AppManager : GameManager<AppManager> {
-    private GameObject confirmationWindow = null;
-    private GameObject window = null;
+    private GameObject aw = null; //Alert window prefab
+    private GameObject window = null; //Alert window obj.
+    private Text content = null; //Alert window text
 
-    public ErrorStatus es = ErrorStatus.None;
-    public WarningStatus ws = WarningStatus.None;
+    public ErrorState es = ErrorState.None; //Error state
+    public WarningState ws = WarningState.None; //Warning state
 
     protected override void Awake() {
         base.Awake();
         Application.targetFrameRate = 60;
-        confirmationWindow = Resources.Load<GameObject>("UI/ConfirmationWindow");
+        aw = Resources.Load<GameObject>("UI/AlertWindow");
     }
 
-    public void ShowWarningWindow(WarningStatus warningStatus) {
+    private void Start() {
+        window = Instantiate(aw, new Vector3(0f, 0f), Quaternion.identity);
+        content = window.transform.GetChild(0).GetComponent<Text>();
+        window.transform.GetChild(1).GetComponent<Button>().onClick.AddListener(TouchExitWindow);
+        window.SetActive(false);
+    }
+
+    //Show warning log
+    public void ShowWarningWindow(WarningState warningStatus) {
         ws = warningStatus;
-        window = Instantiate(confirmationWindow, new Vector3(0f, 0f), Quaternion.identity);
-        window.GetComponentInChildren<Text>().text = WarningContext();
-        window.GetComponentInChildren<Button>().onClick.AddListener(TouchExitWindow);
+        content.text = WarningContext();
+        window.SetActive(true);
     }
 
-    public void ShowErrorWindow(ErrorStatus errorStatus) {
+     //Show error log
+    public void ShowErrorWindow(ErrorState errorStatus) {
         es = errorStatus;
-        window = Instantiate(confirmationWindow, new Vector3(0f, 0f), Quaternion.identity);
-        window.GetComponentInChildren<Text>().text = es.ToString();
-        window.GetComponentInChildren<Button>().onClick.AddListener(TouchExitWindow);
+        content.text = es.ToString();
+        window.SetActive(true);
     }
 
+    //Show log
     public void ShowContextWindow(string text) {
-        window = Instantiate(confirmationWindow, new Vector3(0f, 0f), Quaternion.identity);
-        window.GetComponentInChildren<Text>().text = text;
-        window.GetComponentInChildren<Button>().onClick.AddListener(TouchExitWindow);
+        content.text = text;
+        window.SetActive(true);
     }
 
+    //Show error context log
+    public void ShowContextWindow(ErrorState errorStatus, string text) {
+        es = errorStatus;
+        content.text = text;
+        window.SetActive(true);
+    }
+
+    //Touch exit button
     public void TouchExitWindow() {
-        if (es != ErrorStatus.None) {
+        if (es != ErrorState.None) {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
             Application.Quit();
 #endif
         }
-
-        Destroy(window);
-        window = null;
+        window.SetActive(false);
     }
 
+    //Mapping warning state to string
     public string WarningContext() {
         switch (ws) {
-            case WarningStatus.GuestLogin: return "If you login as guest, it will not be recorded on the leaderboard";
-            case WarningStatus.SignInOnProgress: return "Login in progress";
-            case WarningStatus.LoggingIn: return "You are already logged in";
-            case WarningStatus.DontLogin: return "Do not log in";
-            default: return "";
+            case WarningState.SignInOnProgress: return "Login in progress";
+            case WarningState.LoggedIn: return "Already logged in";
+            case WarningState.GuestLogin: return "The leaderboard is not available for guest login";
+            case WarningState.Logout: return "Already logged out";
+            case WarningState.NotLogin: return "Need to log in";
+            default: return string.Empty;
         }
     }
 

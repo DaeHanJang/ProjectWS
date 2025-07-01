@@ -1,18 +1,18 @@
 using UnityEngine;
 
-public class Claw : MonoBehaviour {
-    private ClawState cs = null;
-
-    private void Start() {
-        cs = GameManager.Inst.player.GetComponent<ClawState>();
+//Claw
+public class Claw : Weapon {
+    private void Awake() {
+        wf = GameObject.Find("Player").GetComponent<ClawFactory>();
     }
 
     private void OnTriggerEnter2D(Collider2D collision) {
-        if (!collision.gameObject.CompareTag("Enemy")) return; //적이 아닐 경우
+        if (!collision.gameObject.CompareTag("Enemy")) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        float damage = cs.strength - es.def; //무기 공격력 - 적 방어력
-        es.hp -= (damage < 0) ? 0 : damage;
+        float damage = wf.Dmg - (wf.Dmg * es.Def * es.DefCoe);
+        if (damage < 0f) damage = 0f;
+        es.UpdateHp(damage);
     }
 
     public void DestroyObj() {

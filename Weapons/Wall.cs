@@ -1,31 +1,37 @@
 using UnityEngine;
 
-public class Wall : MonoBehaviour {
-    private WallState ws = null;
-    private PlayerMovement pm = null;
-    private Vector3 directionVec;
-    private float radius = 1f;
+//Wall
+public class Wall : Weapon {
+    private PlayerState ps = null;
+    private Vector3 directionVec = Vector3.left;
+    private const float radius = 0.5f;
 
-    private void Start() {
-        ws = GameManager.Inst.player.GetComponent<WallState>();
-        pm = GameManager.Inst.pm;
-        if (pm.moveVec == Vector2.zero) directionVec = Vector3.left;
-        else directionVec = pm.moveVec.normalized;
+    private const float coolTime = 0.5f;
+    private float timer = 0f;
+
+    private void Awake() {
+        wf = GameObject.Find("Player").GetComponent<WallFactory>();
+        ps = GameObject.Find("Player").GetComponent<PlayerState>();
     }
 
     private void Update() {
-        if (pm.moveVec != Vector2.zero) directionVec = pm.moveVec.normalized;
+        timer += Time.deltaTime;
+
+        if (ps.inputVec != Vector3.zero) directionVec = ps.inputVec.normalized;
         float angle = Mathf.Atan2(directionVec.y, directionVec.x) * Mathf.Rad2Deg;
 
         transform.position = GameManager.Inst.player.transform.position + directionVec * radius;
         transform.rotation = Quaternion.Euler(0, 0, angle - 90f);
     }
 
-    private void OnCollisionEnter2D(Collision2D collision) {
-        if (!collision.gameObject.CompareTag("Enemy")) return; //적이 아닐 경우
+    private void OnCollisionStay2D(Collision2D collision) {
+        if (!collision.gameObject.CompareTag("Enemy")) return;
+        if (timer < coolTime) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        float damage = ws.strength - es.def; //무기 공격력 - 적 방어력
-        es.hp -= (damage < 0) ? 0 : damage;
+        float damage = wf.Dmg - (wf.Dmg * es.Def * es.DefCoe);
+        if (damage < 0f) damage = 0f;
+        es.UpdateHp(damage);
+        timer = 0f;
     }
 }

@@ -1,4 +1,5 @@
 using Management;
+using System;
 using System.Collections;
 using UnityEngine;
 using GooglePlayGames;
@@ -8,13 +9,13 @@ using Firebase.Auth;
 using Firebase.Extensions;
 using WhiteSurvivor;
 
-//Game account manager (GPGS, Firebase-based)
+//Authentication manager
 public class AuthManager : GameManager<AuthManager> {
-    private AppManager am = null;
-    private FirebaseApp fApp = null;
-    private FirebaseAuth fAuth = null;
-    private FirebaseUser fUser = null;
-    private bool IsSignInOnProgress = false;
+    private AppManager am = null; //Application manager
+    private FirebaseApp fApp = null; //Firebase SDK class
+    private FirebaseAuth fAuth = null; //Firebase authentication class
+    private FirebaseUser fUser = null; //Firebase user class
+    private bool IsSignInOnProgress = false; //Logging in flag
 
     public FirebaseApp FApp {
         get { return fApp; }
@@ -29,120 +30,126 @@ public class AuthManager : GameManager<AuthManager> {
     private void Start() {
         am = AppManager.Inst;
 
-        //Google play games service 환경 초기화 및 활성화
-        PlayGamesClientConfiguration config = new PlayGamesClientConfiguration.Builder().RequestIdToken().Build();
-        PlayGamesPlatform.InitializeInstance(config);
-        PlayGamesPlatform.DebugLogEnabled = true;
-        PlayGamesPlatform.Activate();
+        //GPGS 환경 초기화 및 활성화
+        PlayGamesClientConfiguration config = new PlayGamesClientConfiguration.Builder().RequestIdToken().Build(); //GPGS 환경 설정값
+        PlayGamesPlatform.InitializeInstance(config); //GPGS 환경 초기화
+        PlayGamesPlatform.DebugLogEnabled = true; //GPGS 디버그 로그 활성화
+        PlayGamesPlatform.Activate(); //GPGS 활성화
 
         //Firebase 구동 환경 체크
         FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
-            var result = task.Result;
-
-            if (result != DependencyStatus.Available) {
-                am.ShowErrorWindow(ErrorStatus.FirebaseError);
-                Debug.LogError(result.ToString());
-            }
-            else {
+            var dependencyStatus = task.Result;
+            if (dependencyStatus == DependencyStatus.Available) {
                 fApp = FirebaseApp.DefaultInstance;
                 fAuth = FirebaseAuth.DefaultInstance;
+            }
+            else {
+                am.ShowContextWindow(ErrorState.FirebaseInitializationError, String.Format("Could not resolve all Firebase dependencies: {0}", dependencyStatus));
             }
         });
     }
 
-    //GPGS(Google play game service) login
-    public void GPGSLogin() {
+    //GPGS login
+    public void GPGSAuthenticate() {
         if (IsSignInOnProgress) {
-            am.ShowWarningWindow(WarningStatus.SignInOnProgress);
+            am.ShowWarningWindow(WarningState.SignInOnProgress);
             return;
         }
         if (fUser != null) {
-            am.ShowWarningWindow(WarningStatus.LoggingIn);
+            am.ShowWarningWindow(WarningState.LoggedIn);
             return;
         }
 
         IsSignInOnProgress = true;
 
+        //GPGS 계정 인증
         Social.localUser.Authenticate((success) => {
             if (success) {
-                StartCoroutine(GPGSFirebaseLogin());
-                Debug.Log("Login successful");
+                StartCoroutine(FirebaseGPGSLogin());
             }
             else {
                 IsSignInOnProgress = false;
-                am.ShowErrorWindow(ErrorStatus.GPGSLoginFailed);
-                Debug.Log("Login failed");
+                am.ShowErrorWindow(ErrorState.GPGSAuthenticationFailure);
+                Debug.Log("GPGS authentication failure");
             }
         });
     }
 
-    //GPGS firebase authentication
-    public IEnumerator GPGSFirebaseLogin() {
-        while (string.IsNullOrEmpty(((PlayGamesLocalUser)Social.localUser).GetIdToken())) yield return null;
+    //Firebase Google login
+    public IEnumerator FirebaseGPGSLogin() {
+        string authCode = ((PlayGamesLocalUser)Social.localUser).GetIdToken(); //GPGS 계정 ID 토큰
 
-        string googleIdToken = ((PlayGamesLocalUser)Social.localUser).GetIdToken();
-        Credential credential = GoogleAuthProvider.GetCredential(googleIdToken, null);
-        fAuth.SignInWithCredentialAsync(credential).ContinueWith(task => {
-            IsSignInOnProgress = false;
+        while (String.IsNullOrEmpty(authCode)) yield return null; //유효한 ID 토큰을 가져올 때까지 기다림
 
+        //ID 토큰을 Credential 객체로 변환
+        //Credential: Firebase 인증을 위한 자격 증명 객체
+        Credential credential = PlayGamesAuthProvider.GetCredential(authCode);
+        //Firebase 로그인 요청
+        fAuth.SignInWithCredentialAsync(credential).ContinueWithOnMainThread(task => {
             if (task.IsCanceled) {
-                am.ShowErrorWindow(ErrorStatus.FirebaseLoginFailed);
-                Debug.LogError("SignInAndRetrieveDataWithCredentialAsync was canceled.");
+                am.ShowErrorWindow(ErrorState.SignInWithCredentialAsyncCanceled);
+                Debug.LogError("SignInWithCredentialAsync was canceled.");
                 return;
             }
             if (task.IsFaulted) {
-                am.ShowErrorWindow(ErrorStatus.FirebaseLoginFailed);
-                Debug.LogError("SignInAndRetrieveDataWithCredentialAsync encountered an error: " + task.Exception);
+                am.ShowContextWindow(ErrorState.SignInWithCredentialAsyncError, task.Exception.ToString());
+                Debug.LogError("SignInWithCredentialAsync encountered an error: " + task.Exception);
                 return;
             }
 
+            IsSignInOnProgress = false;
             fUser = task.Result;
             Debug.LogFormat("User signed in successfully: {0} ({1})", fUser.DisplayName, fUser.UserId);
         });
     }
 
-    //guest login
-    public void AnonymouslyLogin() {
+    //Firebase guest login
+    public void FirebaseAnonymouslyLogin() {
         if (IsSignInOnProgress) {
-            am.ShowWarningWindow(WarningStatus.SignInOnProgress);
+            am.ShowWarningWindow(WarningState.SignInOnProgress);
             return;
         }
         if (fUser != null) {
-            am.ShowWarningWindow(WarningStatus.LoggingIn);
+            am.ShowWarningWindow(WarningState.LoggedIn);
             return;
         }
 
-        AppManager.Inst.ShowWarningWindow(WarningStatus.GuestLogin);
         IsSignInOnProgress = true;
 
-        fAuth.SignInAnonymouslyAsync().ContinueWith(task => {
-            IsSignInOnProgress = false;
-
+        fAuth.SignInAnonymouslyAsync().ContinueWithOnMainThread(task => {
             if (task.IsCanceled) {
-                am.ShowErrorWindow(ErrorStatus.FirebaseLoginFailed);
+                am.ShowErrorWindow(ErrorState.SignInAnonymouslyAsyncCanceled);
                 Debug.LogError("SignInAnonymouslyAsync was canceled.");
                 return;
             }
             if (task.IsFaulted) {
-                am.ShowErrorWindow(ErrorStatus.FirebaseLoginFailed);
+                am.ShowContextWindow(ErrorState.SignInAnonymouslyAsyncError, task.Exception.ToString());
                 Debug.LogError("SignInAnonymouslyAsync encountered an error: " + task.Exception);
                 return;
             }
 
+            IsSignInOnProgress = false;
             fUser = task.Result.User;
             Debug.LogFormat("User signed in successfully: {0} ({1})", fUser.DisplayName, fUser.UserId);
         });
     }
 
-    //Account Logout
+    //Logout
     public void Logout() {
+        if (fAuth.CurrentUser == null) {
+            am.ShowWarningWindow(WarningState.Logout);
+            return;
+        }
+
         fAuth.SignOut();
         if (Social.localUser.authenticated) PlayGamesPlatform.Instance.SignOut();
         fUser = null;
-        Debug.LogFormat("Logout successful");
+
+        am.ShowContextWindow("Logout successful");
+        Debug.Log("Logout successful");
     }
 
-    //Save record to leaderboard
+    //Save GPGS leaderboard records
     public void AddLeaderboard(float timer) {
         if (!Social.localUser.authenticated) return;
 

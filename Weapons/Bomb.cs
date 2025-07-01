@@ -1,24 +1,20 @@
 using UnityEngine;
 
-//ÆøÅº
-public class Bomb : MonoBehaviour {
+//Bomb
+public class Bomb : Weapon {
     private GameObject particle = null;
-    private BombState bs = null;
 
-    public Vector3 posDestination;
+    public Vector3 destinationPos;
 
     private void Awake() {
+        wf = GameObject.Find("Player").GetComponent<BombFactory>();
         particle = Resources.Load<GameObject>("Weapons/BombExplosion");
     }
 
-    private void Start() {
-        bs = GameManager.Inst.player.GetComponent<BombState>();
-    }
-
     private void Update() {
-        transform.position = Vector2.MoveTowards(transform.position, posDestination, bs.speed * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, destinationPos, wf.Speed * Time.deltaTime);
 
-        if (transform.position == posDestination) {
+        if (transform.position == destinationPos) {
             Instantiate(particle, transform.position, Quaternion.identity);
             Destroy(gameObject);
         }

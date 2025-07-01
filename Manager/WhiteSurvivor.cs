@@ -1,18 +1,22 @@
 namespace WhiteSurvivor {
     //Error
-    public enum ErrorStatus{
+    public enum ErrorState {
         None,
-        FirebaseError,
-        GPGSLoginFailed,
-        FirebaseLoginFailed
+        FirebaseInitializationError,
+        GPGSAuthenticationFailure,
+        SignInWithCredentialAsyncCanceled,
+        SignInWithCredentialAsyncError,
+        SignInAnonymouslyAsyncCanceled,
+        SignInAnonymouslyAsyncError
     };
 
     //Warning
-    public enum WarningStatus {
+    public enum WarningState {
         None,
-        GuestLogin,
         SignInOnProgress,
-        LoggingIn,
-        DontLogin
+        LoggedIn,
+        GuestLogin,
+        Logout,
+        NotLogin
     };
 }

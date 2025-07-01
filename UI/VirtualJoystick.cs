@@ -1,76 +1,77 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-//가상 조이스틱
+//Virtual joystick
 public class VirtualJoystick : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler {
-    private PlayerMovement pm = null; //플레이어 움직임 담당 컴포넌트
+    //Player field
+    private PlayerState ps = null; //Player state
+    public State playerIdle; //Player idle state
+    public State playerMove; //Player move state
 
-    //가상 조이스틱 및 레버 관련
-    public GameObject virtualJoystick = null;
-    public RectTransform leverRectTransform = null;
-    private RectTransform virtualJoystickRectTransform = null;
-    private Vector2 virtualJoystickPosition = Vector2.zero;
-    private float virtualJoystickRadius = 0f;
+    //Virtual joystick field
+    public GameObject virtualJoystick = null; //Virtual joystick UI
+    public RectTransform leverTransform = null; //Lever transform
+    private RectTransform virtualJoystickTransform = null; //Virtual joystick transform
+    private Vector2 virtualJoystickPos = Vector2.zero; //Virtual joystick position
+    private float virtualJoystickRadius = 0f; //virtual joystick radius
 
-    private bool isInput = false;
-    public Vector2 inputVec = Vector2.zero;
-
-    public bool IsInput {
-        get { return isInput; }
-        set { isInput = value; }
-    }
+    private bool isInput = false; //Input frag
+    public Vector2 inputVec = Vector2.zero; //Input vector
 
     private void Start() {
-        pm = GameManager.Inst.player.GetComponent<PlayerMovement>();
-        virtualJoystickRectTransform = virtualJoystick.GetComponent<RectTransform>();
-        virtualJoystickRadius = virtualJoystickRectTransform.sizeDelta.x / 2f;
-        virtualJoystick.SetActive(false);
+        ps = GameManager.Inst.ps;
+        virtualJoystickTransform = virtualJoystick.GetComponent<RectTransform>();
+        virtualJoystickRadius = virtualJoystickTransform.sizeDelta.x / 2f;
+    }
+
+    private void OnEnable() {
+        inputVec = Vector2.zero;
     }
 
     private void Update() {
-        //OnDrag 이벤트는 드래그 시작 후 가만히 있을 때 호출이 안되기 때문에
-        //드래그 시작부터 끝날 때까지 지속해서 입력 벡터를 전송하기 위해 isInput변수를 사용
         if (isInput) SendInputVector();
     }
 
     public void OnBeginDrag(PointerEventData eventData) {
         isInput = true;
 
-        virtualJoystickRectTransform.anchoredPosition = eventData.position;
-        virtualJoystick.SetActive(true);
-        virtualJoystickPosition = eventData.position;
+        virtualJoystickTransform.anchoredPosition = eventData.position; //가상 조이스틱 드래그 시작 지점으로 이동
+        virtualJoystickPos = eventData.position; //가상 조이스틱 중심 좌표 저장
+        virtualJoystick.SetActive(true); //가상 조이스틱 UI 활성화
 
-        ControlJoystick(eventData);
+        GetInputVec(eventData);
+
+        ps.SetState(playerMove);
+        ps.Action();
     }
 
     public void OnDrag(PointerEventData eventData) {
-        ControlJoystick(eventData);
+        GetInputVec(eventData);
     }
 
     public void OnEndDrag(PointerEventData eventData) {
         isInput = false;
 
-        pm.SendMessage("Stop");
-
+        ps.SetState(playerIdle);
+        ps.Action();
         virtualJoystick.SetActive(false);
-        leverRectTransform.anchoredPosition = Vector2.zero;
     }
 
-    //조이스틱 조작
-    private void ControlJoystick(PointerEventData eventData) {
-        Vector2 inputDir = eventData.position - virtualJoystickPosition;
-        //레버가 가상 조이스틱의 경계를 넘지 않아야 하기 때문에 inputDir의 크기가 가상 조이스틱의 반지름 보다 크다면
-        //inputDir의 방향벡터에 반지름을 곱해 위치 조정
-        Vector2 limitDir = ((inputDir.magnitude < virtualJoystickRadius) ? inputDir : inputDir.normalized * virtualJoystickRadius);
-        leverRectTransform.anchoredPosition = limitDir;
-        //limitDir을 가상 조이스틱의 반지름으로 나누어 0~1로 정규화
-        inputVec = limitDir / virtualJoystickRadius;
-    }
-
-    //PlyaerMovement 컴포넌트에 움직여야 할 벡터 전송
-    private void SendInputVector() {
-        if (pm) {
-            pm.Move(inputVec);
+    //Get input vector
+    private void GetInputVec(PointerEventData eventData) {
+        Vector2 inputDir = eventData.position - virtualJoystickPos; //드래그 방향 벡터
+        //inputDir의 벡터 크기가 가상 조이스틱 반지름을 넘어가면 벡터 크기를 반지름으로 고정
+        if (inputDir.sqrMagnitude > virtualJoystickRadius * virtualJoystickRadius) {
+            inputDir = inputDir.normalized * virtualJoystickRadius;
         }
+        leverTransform.anchoredPosition = inputDir; //레버 UI 위치 설정
+        inputVec = inputDir / virtualJoystickRadius; //inputDir을 가상 조이스틱 반지름 기준으로 정규화
+    }
+
+    //Send vector to player
+    private void SendInputVector() {
+        if (ps is null) return;
+
+        ps.inputVec = inputVec;
     }
 }

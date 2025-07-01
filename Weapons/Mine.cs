@@ -1,37 +1,40 @@
 using UnityEngine;
 
-public class Mine : MonoBehaviour {
-    private MineState ms = null;
+//Mine
+public class Mine : Weapon {
     private BoxCollider2D bc = null;
     private Animator at = null;
     private float timer = 0f;
+    private bool isExplosion = false;
+    private readonly Vector3 baseScale = new Vector3(0.8f, 0.8f, 0.8f);
 
     private void Awake() {
+        wf = GameObject.Find("Player").GetComponent<MineFactory>();
         bc = GetComponent<BoxCollider2D>();
         at = GetComponent<Animator>();
         bc.enabled = false;
     }
 
-    private void Start() {
-        ms = GameManager.Inst.player.GetComponent<MineState>();
-    }
-
     private void Update() {
         timer += Time.deltaTime;
 
-        if (timer >= ms.timer) {
-            transform.localScale = ms.BoomScale;
+        if (timer >= ((MineFactory)wf).ExplosionTime && !isExplosion) {
+            isExplosion = true;
+            Vector3 scale = (((MineFactory)wf).Lv - 1) * ((MineFactory)wf).scaleIncrease;
+            if (scale.x > ((MineFactory)wf).maxScale) scale = Vector3.one * ((MineFactory)wf).maxScale;
+            transform.localScale = baseScale + scale;
             bc.enabled = true;
             at.SetTrigger("Boom");
         }
     }
 
     private void OnTriggerEnter2D(Collider2D collision) {
-        if (!collision.gameObject.CompareTag("Enemy")) return; //적이 아닐 경우
+        if (!collision.gameObject.CompareTag("Enemy")) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        float damage = ms.strength - es.def; //무기 공격력 - 적 방어력
-        es.hp -= (damage < 0) ? 0 : damage;
+        float damage = wf.Dmg - (wf.Dmg * es.Def * es.DefCoe);
+        if (damage < 0f) damage = 0f;
+        es.UpdateHp(damage);
     }
 
     public void DestroyObj() {

@@ -1,59 +1,87 @@
 using UnityEngine;
 
-//적
-public abstract class EnemyState : MonoBehaviour {
-    protected EnemyMovement em = null;
-    protected SpriteRenderer sr = null;
-    protected Rigidbody2D rb = null;
-    protected Collider2D col = null;
-    protected Color primitiveColor;
-    protected float increaseHp = 0f; //체력 증가값
-    protected float increaseExp = 0f; //경험치 증가값
-    protected float increaseStr = 0f; //공격력 증가값
-    protected float increaseDef = 0f; //방어력 증가값
-    protected float increaseSpeed = 0f; //속도 증가값
-    protected float coolTime = 2f; //공격 대기 시간
-    protected int level = 0;
-    protected bool bDie = false;
+//Enemy state
+public abstract class EnemyState : MonoBehaviour, IStatus {
+    protected SpriteRenderer sr = null; //Sprite comp.
+    protected Collider2D col = null; //Collider comp.
+    protected State preState = null; //Previous State
+    protected State curState = null; //Current State
 
-    public bool bAttack = true; //공격 가능 여부
-    public float hp = 1f; //체력
-    public float exp = 1f; //주는 경험치
-    public float str = 1f; //공격력
-    public float def = 0f; //방어력
-    public float speed = 2f; //속도
-    public float coolTimeTimer = 0f; //공격 대기 시간 타이머
+    public State enemyIdle = null; //Enemy idle state
+    public State enemyMove = null; //Enemy move state
+    public State enemyDie = null; //Enemy die state
 
+    protected float maxDef;
+    protected float coolTime; //Attack cooltime
+    protected Color primitiveColor = Color.clear; //Base color
+    protected float timer = 0f;
+    
+    public int Lv { get; set; }
+    public float Exp { get; set; }
+    public float MaxExp { get; set; }
+    public float Hp { get; set; }
+    public float MaxHp { get; set; }
+    public float Str { get; set; }
+    public float Def { get; set; }
+    public float DefCoe { get; set; }
+    public float Speed { get; set; }
+    public float ExpIncrease { get; set; }
+    public float HpIncrease { get; set; }
+    public float StrIncrease { get; set; }
+    public float DefIncrease { get; set; }
+    public float SpeedIncrease { get; set; }
+    public bool IsDie { get; set; } //죽음 여부
+    public bool IsAttack { get; set; } //공격 여부
+    
     protected virtual void Awake() {
-        em = GetComponent<EnemyMovement>();
         sr = GetComponent<SpriteRenderer>();
-        rb = GetComponent<Rigidbody2D>();
         col = GetComponent<Collider2D>();
         primitiveColor = sr.color;
     }
 
     protected virtual void Start() {
-        level = GameManager.Inst.ps.level;
+        InitStatus();
+        SetState(enemyMove);
+        Action();
     }
 
     protected virtual void Update() {
-        //체력 0일 시
-        if (hp <= 0f && !bDie) SetDie();
+        if (Hp <= 0f && !IsDie) {
+            SetState(enemyDie);
+            Action();
+        }
 
-        //공격 후 공격 대기 시간 타이머 진행
-        if (!bAttack) {
-            coolTimeTimer += Time.deltaTime;
-            if (coolTimeTimer >= coolTime) { //공격 대기 시간 종료
-                coolTimeTimer = 0f; //타이머 초기화
-                bAttack = true; //공격 가능
+        if (GameManager.Inst.GameState == 2) {
+            SetState(enemyIdle);
+            Action();
+        }
+
+        //공격 대기 시간
+        if (!IsAttack) {
+            timer += Time.deltaTime;
+            if (timer >= coolTime) {
+                timer = 0f;
+                IsAttack = true;
             }
         }
     }
 
-    protected virtual void SetDie() {
-        --GameManager.Inst.enemyCnt;
-        GameManager.Inst.ps.AddExp(exp); //경험치 획득
-        Destroy(gameObject);
+    //Set state
+    public void SetState(State state) {
+        preState = curState;
+        curState = state;
+    }
+
+    //State action
+    public void Action() {
+        if (preState != null) preState.OnStateExit();
+
+        curState.OnStateEnter();
+    }
+
+    //Update hp.
+    public void UpdateHp(float value) {
+        Hp -= value;
     }
 
     protected virtual void OnCollisionEnter2D(Collision2D collision) {
@@ -76,11 +104,10 @@ public abstract class EnemyState : MonoBehaviour {
 
     protected virtual void OnTriggerExit2D(Collider2D collision) {
         if (!collision.gameObject.CompareTag("Weapon")) return;
-
+        
         sr.color = primitiveColor;
     }
 
-    protected abstract void SetState(); //적 스테이터스 설정
-
-    protected abstract void SetIncreaseState(); //적 증가량 설정
+    //Initialization status
+    protected abstract void InitStatus();
 }

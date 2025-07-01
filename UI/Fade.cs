@@ -2,18 +2,8 @@ using Management;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+//Fade
 public class Fade : ScreenTransitionEffect {
-    /*private RectTransform rt = null;
-
-    private void Awake() {
-        rt = GetComponent<RectTransform>();
-    }
-
-    private void Start() {
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-    }*/
-
     public override void StartEffectFirst() { }
 
     public override void StartEffectLast() {

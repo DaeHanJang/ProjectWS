@@ -1,18 +1,17 @@
 using UnityEngine;
 
-//오브
-public class Orb : MonoBehaviour {
-    private OrbState os = null;
-
-    private void Start() {
-        os = GameManager.Inst.player.GetComponent<OrbState>();
+//Orb
+public class Orb : Weapon {
+    private void Awake() {
+        wf = GameObject.Find("Player").GetComponent<OrbFactory>();
     }
 
     private void OnTriggerEnter2D(Collider2D collision) {
-        if (!collision.gameObject.CompareTag("Enemy")) return; //적이 아닐 경우
+        if (!collision.gameObject.CompareTag("Enemy")) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        float damage = os.strength - es.def; //무기 공격력 - 적 방어력
-        es.hp -= (damage < 0) ? 0 : damage;
+        float damage = wf.Dmg - (wf.Dmg * es.Def * es.DefCoe);
+        if (damage < 0f) damage = 0f;
+        es.UpdateHp(damage);
     }
 }

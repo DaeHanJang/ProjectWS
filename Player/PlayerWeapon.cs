@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-//플레이어 무기 관리
+//Player waepon manager
 public class PlayerWeapon : MonoBehaviour {
     //무기 종류
     public enum EWeapon {
@@ -16,73 +16,63 @@ public class PlayerWeapon : MonoBehaviour {
         Claw,
         Laser,
         Mine,
-        Max
+        Max,
+        NULL
     };
 
-    private List<MonoBehaviour> weapons = new List<MonoBehaviour>(); //소유 무기 컴포넌트
-    private Dictionary<int, int> weaponOrder = new Dictionary<int, int>(); //소유 무기 순서
-    private Dictionary<int, int> weaponLevel = new Dictionary<int, int>(); //소유 무기 레벨
-
-    public HashSet<int> weaponsIdx = new HashSet<int>(); //소유 무기 고유 번호
-    public int maxWeaponCnt = 5; //최대 소유 무기 갯수
-    public int weaponCnt = 0; //소유 무기 갯수
+    private Dictionary<int, WeaponFactory> wf = new Dictionary<int, WeaponFactory>();
+    public HashSet<int> weaponIdx = new HashSet<int>();
+    public const int maxWeaponCnt = 5;
+    public int weaponCnt = 0;
 
     private void Start() {
         SetWeapon(UnityEngine.Random.Range(0, (int)EWeapon.Max));
     }
 
-    //무기 장착
     public void SetWeapon(int idx) {
-        if (weaponsIdx.Contains(idx)) {
-            switch (idx) { 
-                case 0: GetComponent<BulletState>().LevelUp(); break;
-                case 1: GetComponent<OrbState>().LevelUp(); break;
-                case 2: GetComponent<BombState>().LevelUp(); break;
-                case 3: GetComponent<ShieldState>().LevelUp(); break;
-                case 4: GetComponent<WindState>().LevelUp(); break;
-                case 5: GetComponent<ThunderState>().LevelUp(); break;
-                case 6: GetComponent<WallState>().LevelUp(); break;
-                case 7: GetComponent<ClawState>().LevelUp(); break;
-                case 8: GetComponent<LaserState>().LevelUp(); break;
-                case 9: GetComponent<MineState>().LevelUp(); break;
-                default: break;
+        if (!wf.ContainsKey(idx)) {
+            switch (GetWeaponType(idx)) {
+                case EWeapon.Bullet: wf.Add(idx, gameObject.AddComponent<BulletFactory>()); break;
+                case EWeapon.Orb: wf.Add(idx, gameObject.AddComponent<OrbFactory>()); break;
+                case EWeapon.Bomb: wf.Add(idx, gameObject.AddComponent<BombFactory>()); break;
+                case EWeapon.Shield: wf.Add(idx, gameObject.AddComponent<ShieldFactory>()); break;
+                case EWeapon.Wind: wf.Add(idx, gameObject.AddComponent<WindFactory>()); break;
+                case EWeapon.Thunder: wf.Add(idx, gameObject.AddComponent<ThunderFactory>()); break;
+                case EWeapon.Wall: wf.Add(idx, gameObject.AddComponent<WallFactory>()); break;
+                case EWeapon.Claw: wf.Add(idx, gameObject.AddComponent<ClawFactory>()); break;
+                case EWeapon.Laser: wf.Add(idx, gameObject.AddComponent<LaserFactory>()); break;
+                case EWeapon.Mine: wf.Add(idx, gameObject.AddComponent<MineFactory>()); break;
             }
+            weaponIdx.Add(idx);
+            ++weaponCnt;
         }
-        else { //소유하지 않은 무기일 경우
-            weaponsIdx.Add(idx); //무기 고유 번호 추기
-            weaponOrder.Add(idx, weaponCnt++); //고유 번호를 키값으로 무기 순서 설정
-            weaponLevel.Add(idx, 1); //무기 레벨 1 저장
-            switch (idx) { //무기 컴포넌트 적재
-                case 0: weapons.Add(gameObject.AddComponent<BulletState>()); break;
-                case 1: weapons.Add(gameObject.AddComponent<OrbState>()); break;
-                case 2: weapons.Add(gameObject.AddComponent<BombState>()); break;
-                case 3: weapons.Add(gameObject.AddComponent<ShieldState>()); break;
-                case 4: weapons.Add(gameObject.AddComponent<WindState>()); break;
-                case 5: weapons.Add(gameObject.AddComponent<ThunderState>()); break;
-                case 6: weapons.Add(gameObject.AddComponent<WallState>()); break;
-                case 7: weapons.Add(gameObject.AddComponent<ClawState>()); break;
-                case 8: weapons.Add(gameObject.AddComponent<LaserState>()); break;
-                case 9: weapons.Add(gameObject.AddComponent<MineState>()); break;
-                default: break;
-            }
-        }
+        else wf[idx].LvUp();
     }
 
-    public void AddWeaponLevelList(int idx) {
-        weaponLevel[idx]++;
+    public EWeapon GetWeaponType(int idx) {
+        switch (idx) {
+            case 0: return EWeapon.Bullet;
+            case 1: return EWeapon.Orb;
+            case 2: return EWeapon.Bomb;
+            case 3: return EWeapon.Shield;
+            case 4: return EWeapon.Wind;
+            case 5: return EWeapon.Thunder;
+            case 6: return EWeapon.Wall;
+            case 7: return EWeapon.Claw;
+            case 8: return EWeapon.Laser;
+            case 9: return EWeapon.Mine;
+            default: return EWeapon.NULL;
+        }
     }
 
     public void DestoryWeapon() {
+        foreach (var comp in wf) comp.Value.enabled = false;
         GameObject[] projectiles = GameObject.FindGameObjectsWithTag("Weapon");
         foreach (GameObject obj in projectiles) Destroy(obj);
     }
 
-    public int GetWeaponeTypeCnt() {
+    public int GetEWeaponMax() {
         return (int)EWeapon.Max;
-    }
-
-    public int GetWeaponIdx(string name) {
-        return (int)Enum.Parse(typeof(EWeapon), name);
     }
 
     public string GetWeaponName(int idx) {

@@ -1,56 +1,22 @@
-using UnityEngine;
-
+//Skeleton obj.
 public class SkeletonState : EnemyState {
-    private Animator at = null;
-    private AudioSource _as = null;
-
-    protected override void Awake() {
-        base.Awake();
-        at = GetComponent<Animator>();
-        _as = GetComponent<AudioSource>();
-    }
-
-    protected override void Start() {
-        base.Start();
-        level -= 9;
-        SetIncreaseState();
-        SetState();
-    }
-
-    protected override void SetIncreaseState() {
-        increaseHp = 150f;
-        increaseExp = 1.5f;
-        increaseStr = 1.5f;
-        increaseDef = 5f;
-    }
-
-    protected override void SetState() {
-        hp = 350f;
-        exp = 1000f;
-        str = 1000f;
-        def = 20f;
-        hp += increaseHp * (level - 1);
-        if (level - 1 != 0) {
-            exp *= increaseExp * (level - 1);
-            str *= increaseStr * (level - 1);
-        }
-        def += increaseDef * (level - 1);
-        speed = 2f;
+    protected override void InitStatus() {
+        PlayerState ps = GameManager.Inst.ps;
+        Lv = ps.Lv - 9;
+        HpIncrease = 1.5f;
+        StrIncrease = 1.5f;
+        DefIncrease = 1.5f;
+        maxDef = 70f;
         coolTime = 2f;
-    }
 
-    protected override void SetDie() {
-        bDie = true;
-        em.enabled = false;
-        rb.velocity = Vector3.zero;
-        rb.isKinematic = true;
-        col.enabled = false;
-        at.SetTrigger("Die");
-        _as.Play();
-        --GameManager.Inst.enemyCnt;
-        GameManager.Inst.ps.AddExp(exp); //°æÇèÄ¡ È¹µæ
-        Invoke("DestroyObj", _as.clip.length);
+        Exp = ps.MaxExp * 0.02f;
+        Hp = ps.Str * Lv * HpIncrease;
+        Str = ps.Hp * 0.01f * Lv * StrIncrease;
+        Def = 10f + Lv * DefIncrease;
+        if (Def > maxDef) Def = maxDef;
+        DefCoe = 0.01f;
+        Speed = 2f;
+        IsDie = false;
+        IsAttack = true;
     }
-
-    public void DestroyObj() { Destroy(gameObject); }
 }

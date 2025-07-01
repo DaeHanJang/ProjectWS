@@ -1,113 +1,137 @@
-using System.Collections;
 using UnityEngine;
 
-//플레이어 스테이터스
-public class PlayerState : MonoBehaviour {
-    private PlayerWeapon pw = null; //플레이어 무기 관리 컴포넌트
-    private Animator at = null;
-    private AudioSource _as = null;
-    private RectTransform hpGauge = null; //체력 UI
-    private float increaseHp = 2f; //체력 증가값
-    private float increaseExp = 2f; //경험치 증가값
-    private float increaseStr = 2f; //공격력 증가값
-    private float increaseDef = 0.5f; //방어력 증가값
-    private float increaseSpeed = 0.2f; //속도 증가값
-    private float maxHp = 10f; //최대 체력
-    private float maxSpeed = 6f; //최대 속도
-    private bool bDie = false;
+//Player state
+public class PlayerState : MonoBehaviour, IStatus {
+    private State preState = null; //Previous state
+    private State curState = null; //Current state
+    public State playerDie = null; //Player die state
 
-    private float minExp = 0f; //이전 레벨 최대 경험치량
-    private float maxExp = 10f; //현재 레벨 최대 경험치량
-    public float hp = 10f; //체력
-    public float exp = 0f; //경험치
-    public float str = 1f; //공격력
-    public float def = 0f; //방어력
-    public float speed = 3f; //속도
-    public int level = 1; //레벨
+    public RectTransform hpUI = null; //Hp UI
+
+    public Vector3 inputVec = Vector3.zero; //Input vector
+
+    private const float limitExp = 10000f;
+    private const float limitHp = 10000f;
+    private const float maxSpeed = 6f;
+    private const float maxDef = 50f;
+
+    public int Lv { get; set; }
+    public float Exp { get; set; }
+    public float MaxExp { get; set; }
+    public float Hp { get; set; }
+    public float MaxHp { get; set; }
+    public float Str { get; set; }
+    public float Def { get; set; }
+    public float DefCoe { get; set; }
+    public float Speed { get; set; }
+    public float ExpIncrease { get; set; }
+    public float HpIncrease { get; set; }
+    public float StrIncrease { get; set; }
+    public float DefIncrease { get; set; }
+    public float SpeedIncrease { get; set; }
+    public bool IsDie { get; set; } //Death frag
+
+    //Initialization status
+    public void InitStatus() {
+        Lv = 1;
+        Exp = 0f;
+        MaxExp = 10f;
+        Hp = 10f;
+        MaxHp = 10f;
+        Str = 1f;
+        Def = 0f;
+        DefCoe = 0.01f;
+        Speed = 3f;
+        ExpIncrease = 1.5f;
+        HpIncrease = 1.5f;
+        StrIncrease = 1f;
+        DefIncrease = 1f;
+        SpeedIncrease = 0.1f;
+        IsDie = false;
+    }
 
     private void Awake() {
-        pw = GetComponent<PlayerWeapon>();
-        at = GetComponent<Animator>();
-        _as = GetComponent<AudioSource>();
-        hpGauge = GameObject.Find("HpGauge").GetComponent<RectTransform>();
+        InitStatus();
     }
 
     private void Update() {
-        //체력 0일 시
-        if (hp <= 0f && !bDie) SetDie();
-
-        if (exp >= maxExp) LevelUp();
+        if (Hp <= 0f && !IsDie) {
+            SetState(playerDie);
+            Action();
+        }
+        if (Exp >= MaxExp) LvUp();
     }
 
     private void OnCollisionEnter2D(Collision2D collision) {
-        if (!collision.gameObject.CompareTag("Enemy")) return; //적이 아닐 경우
+        if (!collision.gameObject.CompareTag("Enemy")) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        float damage = es.str - def; //적 공격력 - 플레이어 방어력
-        if (damage < 0) damage = 0;
-        UpdateHp(-damage);
-        es.bAttack = false;
+        if (es.IsAttack) {
+            es.IsAttack = false;
+            float damage = es.Str - (es.Str * Def * DefCoe);
+            if (damage < 0f) damage = 0f;
+            UpdateHp(-damage);
+        }
     }
 
     private void OnCollisionStay2D(Collision2D collision) {
         if (!collision.gameObject.CompareTag("Enemy")) return;
 
         EnemyState es = collision.gameObject.GetComponent<EnemyState>();
-        if (es.bAttack) {
-            es.bAttack = false;
-            float damage = es.str - def;
-            if (damage < 0) damage = 0;
+        if (es.IsAttack) {
+            es.IsAttack = false;
+            float damage = es.Str - (es.Str * Def * DefCoe);
+            if (damage < 0f) damage = 0f;
             UpdateHp(-damage);
         }
     }
 
-    //체력 갱신
+    //Set state
+    public void SetState(State state) {
+        preState = curState;
+        curState = state;
+    }
+
+    //State action
+    public void Action() {
+        if (preState != null) preState.OnStateExit();
+
+        curState.OnStateEnter();
+    }
+
+    //Update hp.
     public void UpdateHp(float value) {
-        hp += value;
-        if (hp > maxHp) hp = maxHp;
-        if (hp < 0) hp = 0;
-        float width = 0.8f - hp / maxHp * 0.8f;
-        hpGauge.sizeDelta = new Vector2(width, 0.2f);
+        Hp += value;
+        if (Hp > MaxHp) Hp = MaxHp;
+        if (Hp < 0f) Hp = 0f;
+        float width = 0.8f - Hp / MaxHp * 0.8f;
+        hpUI.sizeDelta = new Vector2(width, 0.2f);
     }
 
-    //경험치 획득
-    public void AddExp(float _exp) {
-        exp += _exp;
-        GameManager.Inst.SetExpGauge(exp - minExp, maxExp - minExp);
+    //Update exp.
+    public void UpdateExp(float value) {
+        Exp += value;
+        GameManager.Inst.UpdateExpUI(Exp, MaxExp);
     }
 
-    //레벨 업
-    [ContextMenu("LevelUp")]
-    private void LevelUp() {
-        ++level;
-        minExp = maxExp;
-        maxExp *= increaseExp; //경험치 증가량의 곱으로 증가
-        maxHp *= increaseHp; //체력 증가량의 곱으로 증가
-        hp = maxHp;
-        str += increaseStr;
-        def += increaseDef;
-        if (level % 3 == 0 && speed < maxSpeed) speed += increaseSpeed;
+    //Lv. up
+    [ContextMenu("LvUp")]
+    private void LvUp() {
+        ++Lv;
+        Exp -= MaxExp;
+        if (Exp < 0f) Exp = 0f;
+        MaxExp *= ExpIncrease;
+        if (MaxExp > limitExp) MaxExp = limitExp;
+        MaxHp *= HpIncrease;
+        if (MaxHp > limitHp) MaxHp = limitHp;
+        Hp = MaxHp;
+        Str += StrIncrease;
+        Def += DefIncrease;
+        if (Def > maxDef) Def = maxDef;
+        Speed += SpeedIncrease;
+        if (Speed > maxSpeed) Speed = maxSpeed;
+
         UpdateHp(0);
-        GameManager.Inst.SetExpGauge(exp - minExp, maxExp - minExp);
-        GameManager.Inst.LevelUp();
-    }
-
-    private void SetDie() {
-        bDie = true;
-        GetComponent<PlayerMovement>().enabled = false;
-        pw.DestoryWeapon(); //무기 관리 시스템 제거
-        GameManager.Inst.GameOver(); //게임 오버
-        at.SetTrigger("Die");
-        _as.Play();
-        Invoke("DestroyObj", _as.clip.length);
-    }
-
-    public void DestroyObj() {
-        Destroy(gameObject);
-    }
-
-    [ContextMenu("LevelUp10")]
-    private void LevelUP10() {
-        for (int i = 0; i < 10; i++) LevelUp();
+        GameManager.Inst.LvUp();
     }
 }

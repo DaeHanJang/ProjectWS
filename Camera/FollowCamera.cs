@@ -1,6 +1,5 @@
 using UnityEngine;
 
-//메인 카메라
 public class FollowCamera : MonoBehaviour {
     private GameObject player = null;
 

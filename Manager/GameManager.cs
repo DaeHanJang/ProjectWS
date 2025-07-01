@@ -2,34 +2,59 @@ using Management;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-//게임 매니저
+//Game scene manager
 public class GameManager : SceneManager<GameManager> {
-    public GameObject player = null; //플레이어 오브젝트
-    public PlayerState ps = null; //플레이어 데이터 담당 컴포넌트
-    public PlayerWeapon pw = null; //플레이어 무기 관리 컴포넌트
-    public PlayerMovement pm = null; //플레이어 이동 컴포넌트
-    public PlayerDetection pd = null; //플레이어 감지 컴포넌트
-    public GameObject touchPad = null;
-    public int gameState = 0; //게임 상태 0:대기, 1:인 게임, 2: 게임 오버
-    public int enemyCnt = 0; //적 숫자
+    //Player field
+    public GameObject player = null; //Player obj.
+    public PlayerState ps = null; //Player state
+    public PlayerWeapon pw = null; //Player weapon manager
 
-    private GameObject[] enemy = new GameObject[3];
-    private GameObject gachaBoard = null;
-    private GameObject optionBoard = null;
-    private GameObject virtualJoystick = null;
-    private Text txtLevel = null;
-    private Text txtTimer = null;
-    private RectTransform expGauge = null;
-    private Button btnOption = null;
-    private KeyValuePair<int, int> enemyIdx = new KeyValuePair<int, int>();
-    private float feverTiming = 20f;
-    private float regenTime = 1f;
-    private float timer = 0f; //게임 진행 시간
-    private float feverTimer = 0f;
-    private int maxEnemyCnt = 1000; //최대 출현 적 숫자
+    //Enemy field 
+    private List<GameObject> enemy = new List<GameObject>(); //Enemy obj. list
+    private Coroutine co = null; //Enemy spawn coroutine
+    private WaitForSeconds regenTime = null; //Enemy regen time
+    private const int maxEnemyCnt = 1000; //Max enemy count
+    private const int spawnRadius = 10; //Enemy spawn radius
+    private const float baseRegenTime = 0.5f; //Base regen time
+    private int enemyIdx = 1; //Enemy spawn index
+
+    public int EnemyCnt { get; set; } //Enemy count
+    public int MaxEnemyCnt { get; }
+
+    //Timer field
+    private Text txtTimer = null; //Timer UI
+    private float timer = 0f; //Game timer
+
+    //Fever field
+    private const float baseFeverRegenTime = 0.25f; //Base fever regen time
+    private const float unitRegenTime = 0.05f; //Unit regen time
+    private const float minRegenTime = 0.05f; //Min regen time
+    private const float baseFeverTime = 20f; //Base fever time
+    private const float unitFeverTime = 5f; //Unit fever time
+    private const float maxFeverTime = 30f; //Min fever time
+    private const float baseFeveringTime = 10f; //Base fevering time
+    private const float unitFeveringTime = 5f; //Unit fevering time
+    private bool isFever = false; //Fever time frag
+    private float feverTimer = 0f; //fever timer
+    private float feverTime = 20f; //Enemy spawn fever time
+    private float feveringTime = 10f; //Fevering time
+
+    //Settings UI field
+    private GameObject settingsWindow = null; //Settings window obj.
+    private GameObject btnSettings = null; //Settings window btn.
+
+    //Exp gauge UI field
+    private const float screenWidth = 1920f; //Screen width
+    private RectTransform expGauge = null; //Exp UI
+
+    //UI field
+    private GameObject gachaWindow = null; //Gach window obj.
+    private Text txtLevel = null; //Lv UI
+    public GameObject virtualJoystick = null; //Virtual joystick UI
+
+    public int GameState { get; set; } //0: Puase, 1: In game, 2: Game over
 
     protected override void Awake() {
         base.Awake();
@@ -38,20 +63,24 @@ public class GameManager : SceneManager<GameManager> {
         player = GameObject.Find("Player");
         ps = player.GetComponent<PlayerState>();
         pw = player.GetComponent<PlayerWeapon>();
-        pm = player.GetComponent<PlayerMovement>();
-        pd = player.GetComponentInChildren<PlayerDetection>();
-        enemy[0] = Resources.Load<GameObject>("Enemies/Cat");
-        enemy[1] = Resources.Load<GameObject>("Enemies/Skeleton");
-        enemy[2] = Resources.Load<GameObject>("Enemies/Flyingeye");
-        gachaBoard = Resources.Load<GameObject>("UI/GachaBoard");
-        optionBoard = GameObject.Find("OptionBoard");
-        virtualJoystick = GameObject.Find("Joystick");
-        touchPad = GameObject.Find("TouchPad");
-        txtLevel = GameObject.Find("Level").GetComponent<Text>();
-        txtTimer = GameObject.Find("Timer").GetComponent<Text>();
-        expGauge = GameObject.Find("ExpGauge").GetComponent<RectTransform>();
-        btnOption = GameObject.Find("Option").GetComponent<Button>();
-        optionBoard.SetActive(false);
+
+        enemy.Add(Resources.Load<GameObject>("Enemies/Cat"));
+        enemy.Add(Resources.Load<GameObject>("Enemies/Skeleton"));
+        enemy.Add(Resources.Load<GameObject>("Enemies/Flyingeye"));
+        enemy.Add(Resources.Load<GameObject>("Enemies/Goblin"));
+
+        GameObject ui = GameObject.Find("UI");
+
+        txtTimer = ui.transform.GetChild(4).GetComponent<Text>();
+
+        settingsWindow = ui.transform.GetChild(6).gameObject;
+        btnSettings = ui.transform.GetChild(5).gameObject;
+
+        expGauge = ui.transform.GetChild(2).GetChild(0).GetComponent<RectTransform>();
+
+        txtLevel = ui.transform.GetChild(3).GetComponent<Text>();
+        gachaWindow = Resources.Load<GameObject>("UI/GachaWindow");
+        virtualJoystick = ui.transform.GetChild(0).gameObject;
     }
 
     private void Start() {
@@ -59,85 +88,96 @@ public class GameManager : SceneManager<GameManager> {
     }
 
     private void Update() {
-        if (gameState != 1) return;
+        if (GameState != 1) return;
 
         timer += Time.deltaTime;
-        feverTimer += Time.deltaTime;
-
         txtTimer.text = timer.ToString("n2");
-        if (feverTimer >= feverTiming) {
-            if (1 <= ps.level && ps.level < 5) regenTime = 0.5f;
-            else if (5 <= ps.level && ps.level < 10) regenTime = 0.1f;
-            else if (10 <= ps.level && ps.level < 15) regenTime = 0.05f;
-            Invoke("SetNormalRegen", 5f * (ps.level / 2f));
+
+        feverTimer += Time.deltaTime;
+        if (feverTimer > feverTime) {
+            if (!isFever) {
+                float tmpRegenTime = baseFeverRegenTime - (ps.Lv / 5) * unitRegenTime;
+
+                isFever = true;
+                if (tmpRegenTime < minRegenTime) tmpRegenTime = minRegenTime;
+                SetRegenTime(tmpRegenTime);
+            }
+        }
+        if (feverTimer > feverTime + feveringTime) {
+            float tmpFeverTime = baseFeverTime + (ps.Lv / 5) * unitFeverTime;
+            float tmpFeveringTime = baseFeveringTime + (ps.Lv / 5) * unitFeveringTime;
+
+            if (tmpFeverTime > maxFeverTime) tmpFeverTime = maxFeverTime;
+            SetFeverTime(tmpFeverTime, tmpFeveringTime);
         }
     }
 
-    //게임 시작
+    //Game start
     public override void GameStart() {
-        gameState = 1;
-        StartCoroutine(posSpawn());
+        GameState = 1;
+        regenTime = new WaitForSeconds(baseRegenTime);
+        co = StartCoroutine(SpawnEnemy());
     }
 
-    //게임 종료
-    public override void GameOver() {
-        gameState = 2;
-        StopCoroutine(posSpawn());
-        touchPad.SetActive(false);
-        AuthManager.Inst.AddLeaderboard(timer);
-        LoadScene(0);
+    //Spawn enemy
+    private IEnumerator SpawnEnemy() {
+        while (GameState == 1) {
+            if (EnemyCnt > maxEnemyCnt) continue;
+
+            int idx = Random.Range(0, enemyIdx);
+            float angle = Random.Range(0f, 360f);
+            Vector3 posSpawn = player.transform.position + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * spawnRadius;
+            Instantiate(enemy[idx], posSpawn, Quaternion.identity);
+
+            ++EnemyCnt;
+            yield return regenTime;
+        }
     }
 
-    //레벨 UI 조정
-    public void SetLevel() {
-        txtLevel.text = ps.level.ToString();
+    //Set regen time
+    private void SetRegenTime(float time) {
+        regenTime = new WaitForSeconds(time);
     }
 
-    //경험치 UI 조정
-    public void SetExpGauge(float curEXP, float maxEXP) {
-        float width = curEXP / maxEXP * 1920f;
+    //Set fever field
+    private void SetFeverTime(float _feverTime, float _feveringTime) {
+        feverTimer = 0f;
+        feverTime = _feverTime;
+        feveringTime = _feveringTime;
+        SetRegenTime(baseRegenTime);
+        isFever = false;
+    }
+
+    //Level up
+    public void LvUp() {
+        txtLevel.text = ps.Lv.ToString();
+        UpdateExpUI(ps.Exp, ps.MaxExp);
+        Instantiate(gachaWindow, transform.position, Quaternion.identity).transform.SetParent(GameObject.Find("UI").transform, false);
+        virtualJoystick.GetComponent<VirtualJoystick>().enabled = false;
+        virtualJoystick.SetActive(false);
+    }
+
+    //Update exp UI
+    public void UpdateExpUI(float curEXP, float maxEXP) {
+        float width = curEXP / maxEXP * screenWidth;
         expGauge.sizeDelta = new Vector2(width, 0f);
     }
 
-    public void LevelUp() {
-        SetLevel();
-        Instantiate(gachaBoard, transform.position, Quaternion.identity).transform.SetParent(GameObject.Find("UI").transform, false);
-        Time.timeScale = 0;
+    //Open settings window
+    public void TouchSettingsWindow() {
+        Time.timeScale = 0f;
+        settingsWindow.SetActive(true);
+        btnSettings.SetActive(false);
+    }
+
+    //Game over
+    public override void GameOver() {
+        GameState = 2;
+        StopCoroutine(co);
+        co = null;
         virtualJoystick.SetActive(false);
-        touchPad.SetActive(false);
-        touchPad.GetComponent<VirtualJoystick>().inputVec = Vector2.zero;
-        touchPad.GetComponent<VirtualJoystick>().IsInput = false;
-    }
-
-    public void ClickOptionButton() {
-        optionBoard.SetActive(true);
-        btnOption.interactable = false;
-        Time.timeScale = 0;
-    }
-
-    //적 스폰
-    private IEnumerator posSpawn() {
-        int idx = 0;
-        while (gameState == 1) {
-            if (enemyCnt >= maxEnemyCnt) break;
-
-            float angle = Random.Range(0f, 360f);
-            Vector3 posSpawn = player.transform.position + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * 10f;
-            if (1 <= ps.level && ps.level < 10) enemyIdx = new KeyValuePair<int, int>(0, 1);
-            else if (10 <= ps.level && ps.level < 20) enemyIdx = new KeyValuePair<int, int>(0, 2);
-            else if (20 <= ps.level && ps.level < 25) enemyIdx = new KeyValuePair<int, int>(0, 3);
-            else if (25 <= ps.level && ps.level < 100) enemyIdx = new KeyValuePair<int, int>(1, 3);
-            idx = Random.Range(enemyIdx.Key, enemyIdx.Value);
-            Instantiate(enemy[idx], posSpawn, Quaternion.identity);
-            enemyCnt++;
-            yield return new WaitForSeconds(regenTime);
-        }
-    }
-
-    private void SetNormalRegen() {
-        regenTime = 1f;
-        feverTimer = 0f;
-        feverTiming = 20f;
+        AuthManager.Inst.AddLeaderboard(timer);
+        LoadScene(0);
     }
 
     public override void LoadScene(int sceneIdx) {

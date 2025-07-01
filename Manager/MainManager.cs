@@ -1,90 +1,112 @@
 using Management;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using GooglePlayGames;
 using WhiteSurvivor;
 
 //Main scene manager
 public class MainManager : SceneManager<MainManager> {
     private AppManager appm = null; //Application manager
-    private AuthManager authm = null; //GPGS, Firebase manager
-    private AdmobManager admobm = null; //Google admob manager
+    private AuthManager authm = null; //Authentication manager
+    private AdmobManager admobm = null; //Google Admob manager
 
-    public GameObject loginBoard = null;
-    public GameObject btnScore = null;
-    public Button btnAuth = null;
-    public Button btnLogout = null;
+    public GameObject loginBoard = null; //Authentication window
+    public GameObject btnScore = null; //Leaderboard Button obj.
+    public Button btnAuth = null; //Authentication window button
+    public Button btnLogout = null; //Logout button
 
     protected override void Awake() {
         base.Awake();
+        Time.timeScale = 1f;
         SetScreenTransitionEffect("UI/Fade", "UI");
     }
 
     private void Start() {
-        Time.timeScale = 1f;
         appm = AppManager.Inst;
         authm = AuthManager.Inst;
         admobm = AdmobManager.Inst;
+        admobm.LoadAd(); //배너 광고 노출
+
+        //로그인되어 있을 경우(즉, 게임 씬에서 메인 씬으로 돌아온 경우)
         if (authm.FUser != null) {
             if (authm.FUser.IsAnonymous) btnScore.SetActive(false);
             loginBoard.SetActive(false);
-            admobm.ShowFrontAd();
+            admobm.ShowInterstitialAd(); //전면 광고 노출
         }
-        admobm.LoadBannerAdmob();
-        btnLogout.gameObject.SetActive(false);
     }
 
+    //Touch authentication button
     public void TouchAuthentication() {
         if (loginBoard.activeSelf) {
             if (authm.FUser == null) {
-                appm.ShowWarningWindow(WarningStatus.DontLogin);
+                appm.ShowWarningWindow(WarningState.NotLogin);
                 return;
             }
-            loginBoard.SetActive(false);
+            else loginBoard.SetActive(false);
         }
         else {
             loginBoard.SetActive(true);
-            if (authm.FUser == null) btnLogout.gameObject.SetActive(false);
+
+            if (authm.FUser is null) btnLogout.gameObject.SetActive(false);
             else btnLogout.gameObject.SetActive(true);
         }
     }
 
-    //Login UI
-    //Touch google login button
+    //Touch GPGS login button
     public void TouchGoogleLogin() {
-        authm.GPGSLogin();
-        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) {
-            btnScore.SetActive(true);
-            loginBoard.SetActive(false);
+        if (authm.FUser != null) {
+            appm.ShowWarningWindow(WarningState.LoggedIn);
+            return;
         }
+
+        authm.GPGSAuthenticate();
+        btnScore.SetActive(true);
+        loginBoard.SetActive(false);
     }
 
     //Touch guest login button
     public void TouchGuestLogin() {
-        authm.AnonymouslyLogin();
-        if (appm.ws != WarningStatus.SignInOnProgress && appm.ws != WarningStatus.LoggingIn) {
-            btnScore.SetActive(false);
-            loginBoard.SetActive(false);
+        if (authm.FUser != null) {
+            appm.ShowWarningWindow(WarningState.LoggedIn);
+            return;
         }
+
+        appm.ShowWarningWindow(WarningState.GuestLogin);
+        authm.FirebaseAnonymouslyLogin();
+        btnScore.SetActive(false);
+        loginBoard.SetActive(false);
     }
 
     //Touch logout button
     public void TouchLogout() {
+        if (authm.FUser is null) {
+            appm.ShowWarningWindow(WarningState.Logout);
+            return;
+        }
+
         authm.Logout();
+        loginBoard.SetActive(true);
         btnLogout.gameObject.SetActive(false);
-        appm.ShowContextWindow("You have been logged out");
     }
 
     //Touch start button
     public void TouchStart() {
+        if (authm.FUser is null) {
+            appm.ShowWarningWindow(WarningState.NotLogin);
+            return;
+        }
+
         admobm.DestroyAd();
         LoadScene(1);
     }
     
-    //Main scene UI
-    //Touch score button
+    //Touch leaderboard button
     public void TouchScore() {
+        if (authm.FUser.IsAnonymous) {
+            appm.ShowWarningWindow(WarningState.GuestLogin);
+            return;
+        }
+
         PlayGamesPlatform.Instance.ShowLeaderboardUI(GPGSIds.leaderboard_white_survivor_leaderboard);
     }
 

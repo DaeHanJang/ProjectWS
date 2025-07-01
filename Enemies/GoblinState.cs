@@ -1,18 +1,20 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+//Goblin obj.
+public class GoblinState : EnemyState {
+    protected override void InitStatus() {
+        PlayerState ps = GameManager.Inst.ps;
+        Lv = ps.Lv - 4;
+        DefIncrease = 5f;
+        maxDef = 50f;
+        coolTime = 2f;
 
-public class GoblinState : MonoBehaviour
-{
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        Exp = ps.MaxExp * 0.05f;
+        Hp = ps.Str * 100f * Lv;
+        Str = ps.Hp * 0.1f * Lv;
+        Def = Lv * DefIncrease;
+        DefCoe = 0.01f;
+        if (Def > maxDef) Def = maxDef;
+        Speed = ps.Speed * 0.75f;
+        IsDie = false;
+        IsAttack = true;
     }
 }
