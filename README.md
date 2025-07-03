@@ -1,13 +1,12 @@
-# ProjectWS
+# White Survivor
 
 [![Video Label](http://img.youtube.com/vi/bjz68-HM9dM/0.jpg)](https://youtu.be/bjz68-HM9dM)</br>
 데모 비디오</br>
 
 ## 1. 개요
-White Survivor는 2021년 출시한 뱀파이어 서바이버즈의 영향을 받아 만든 2D 로그라이크 게임입니다.</br>
-유니티를 기반으로 개발되었으며 Firebase의 인증 서비스를 이용해 GPGS(Google Play Games Survices)를 통한 구글 로그인과 리더 보드를 구현하였습니다.</br>
-수익 모델은 구글 Admob을 통해 배너 광고와 게임 종료 후 전면 광고를 통해 얻는 방식을 선택했습니다.</br>
-White Survivor는 게임 제작부터 구글 스토어에 개시하기 위한 테스트, 검토 과정을 전부 경험할 수 있었습니다.</br>
+White Survivor는 ProjectWS라는 이름으로 시작된 프로젝트로, 게임 제작부터 출시까지의 전 과정을 직접 경험해보는 것을 목표로 출발했습니다.</br>
+단기간 개발을 통해 실제 출시까지 이루는 것을 주요 목적 중 하나로 삼았기 때문에, 복잡한 시스템보다는 단순하지만 강한 중독성을 가진 게임을 만들고자 했습니다.</br>
+이러한 방향성에 따라, 2021년에 출시되어 큰 인기를 끌었던 뱀파이어 서바이버즈(Vampire Survivors)에서 영감을 받아 2D 로그라이크 장르를 선택하게 되었습니다.</br>
 
 ## 2. 기술
 - Visual Studio 2022
